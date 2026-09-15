@@ -1,0 +1,46 @@
+rules:
+  - id: CICD-001
+    name: Pull Request Quality Gate
+    category: cicd
+    severity: BLOCKER
+    description: Automate build and test gates via CI pipelines to enforce linting and coverage rules.
+    requirements:
+      - Run lint, unit tests, and coverage checks on every pull request.
+      - Block merge when required checks fail.
+    enforcement: [CI]
+    ai_guidance:
+      instructions:
+        - "Generate a CI/CD pipeline definition with automated build and test validation on every PR."
+    evidence:
+      reference: "CI/CD Blueprint"
+
+  - id: CICD-002
+    name: CI Signing and Secrets
+    category: cicd
+    severity: BLOCKER
+    description: Pull all signing certificates and credentials securely from CI secrets storage at build time.
+    requirements:
+      - Signing credentials and API keys must come from CI secrets storage.
+    forbidden:
+      - Signing credentials committed to source control.
+    enforcement: [CI, SECURITY]
+    ai_guidance:
+      instructions:
+        - "Ensure all signing configurations reference secure environment injectables."
+    evidence:
+      reference: "CI/CD Blueprint"
+
+  - id: CICD-003
+    name: Environment Distribution
+    category: cicd
+    severity: HIGH
+    description: Map specific branches to auto-distribution channels with status reporting.
+    requirements:
+      - Auto-distribute Dev builds on merge.
+      - Production builds submitted to store tracks based on version tags.
+    enforcement: [CI]
+    ai_guidance:
+      instructions:
+        - "Configure automatic deployment for the dev variant to distribution tools upon branch merging."
+    evidence:
+      reference: "CI/CD Blueprint"

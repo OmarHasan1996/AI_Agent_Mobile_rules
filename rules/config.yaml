@@ -1,0 +1,55 @@
+schema_version: "1.0"
+
+# Severity levels used across all rules
+severity:
+  BLOCKER:
+    description: "Must be fixed. Delivery cannot proceed."
+  CRITICAL:
+    description: "Security or architectural violation. PR should be blocked."
+  HIGH:
+    description: "Significant engineering standard deviation. Requires remediation."
+  MEDIUM:
+    description: "Should be fixed before production."
+  LOW:
+    description: "Recommendation or maintainability issue."
+  INFO:
+    description: "Informational guidance."
+
+# Enforcement mechanisms for rule validation
+enforcement_types:
+  AI:
+    description: "LLM evaluates architecture/design/code."
+  STATIC:
+    description: "Deterministic source-code analysis."
+  TEST:
+    description: "Validated through automated tests."
+  BUILD:
+    description: "Validated through build process."
+  SECURITY:
+    description: "Validated by security scanning."
+  CI:
+    description: "Validated by CI/CD pipeline."
+  HUMAN:
+    description: "Requires human approval."
+
+# Lifecycle states for engineering rules
+lifecycle:
+  states:
+    - DRAFT
+    - REVIEW
+    - APPROVED
+    - ACTIVE
+    - DEPRECATED
+    - SUPERSEDED
+
+# Global defaults to reduce repetition in rule files
+# These are applied to every rule unless explicitly overridden
+defaults:
+  version: "1.0"
+  status: "active"
+  scope:
+    platforms: ["android", "ios", "multiplatform"]
+    project_types: ["mobile"]
+    environments: ["dev", "qa", "production"]
+  evidence:
+    source: "AI-Assisted Mobile Application Development"

@@ -1,0 +1,96 @@
+rules:
+  - id: ARCH-001
+    name: MVVM with Clean Architecture
+    category: architecture
+    severity: CRITICAL
+    description: >
+      Mobile features must follow MVVM with Clean Architecture as the explicit architectural constraint.
+    requirements:
+      - Use MVVM for presentation architecture.
+      - Separate presentation from business logic.
+      - Isolate data access behind abstractions.
+      - Keep business logic outside the View.
+    forbidden:
+      - Business logic directly inside the View.
+      - Direct API calls from the View.
+      - Direct database access from the View.
+    enforcement: [AI, STATIC]
+    ai_guidance:
+      instructions:
+        - "Act as a Principal Mobile Engineer."
+        - "Write this feature using MVVM with Clean Architecture."
+        - "Isolate side effects by ensuring ViewModels/Presenters depend on abstract Repositories or Interactors via Dependency Injection."
+      review_questions:
+        - "Does the View contain business logic?"
+        - "Does the View directly access networking or persistence?"
+    evidence:
+      reference: "Architecture & State Blueprint"
+
+  - id: ARCH-002
+    name: Unidirectional Data Flow
+    category: architecture
+    severity: HIGH
+    description: UI data flow must remain predictable and unidirectional.
+    requirements:
+      - UI renders immutable state.
+      - User actions are represented as intents/events.
+      - State transitions are predictable.
+      - ViewModel manages UI state.
+    forbidden:
+      - View directly mutating application state.
+      - Multiple uncontrolled sources of UI state.
+      - Hidden state mutations.
+    enforcement: [AI, STATIC]
+    ai_guidance:
+      instructions:
+        - "Force the AI to model state as a single, immutable source of truth."
+        - "The View must be a passive reflection of an immutable UI State object."
+        - "State transitions must happen exclusively via predictable user intents."
+      review_questions:
+        - "Is UI state immutable?"
+        - "Is state changed through a predictable transition?"
+    evidence:
+      reference: "Architecture & State Blueprint"
+
+  - id: ARCH-003
+    name: Passive View
+    category: architecture
+    severity: HIGH
+    description: View must be a passive reflection of state and forward user actions without owning business rules.
+    requirements:
+      - View renders state.
+      - View forwards user actions.
+      - View does not contain business logic.
+    forbidden:
+      - Business rules inside UI components.
+      - API invocation directly from UI.
+      - Repository access directly from UI.
+    enforcement: [AI, STATIC]
+    ai_guidance:
+      instructions:
+        - "Ensure the UI merely renders state and forwards events/intents to the ViewModel."
+      review_questions:
+        - "Are there any direct repository references or API calls inside the view components?"
+    evidence:
+      reference: "Architecture & State Blueprint"
+
+  - id: ARCH-004
+    name: Dependency Injection
+    category: architecture
+    severity: HIGH
+    description: All components must be injected using explicit frameworks rather than manually resolved or created inline.
+    requirements:
+      - Dependencies must be injected.
+      - Side effects must be isolated behind abstractions.
+      - Repository/Interactor dependencies must be injectable.
+    forbidden:
+      - Feature-specific global singletons.
+      - Hidden dependency creation inside business logic.
+    enforcement: [AI, STATIC]
+    ai_guidance:
+      instructions:
+        - "For strict Dependency Injection, use approved frameworks (e.g., Hilt, Resolver, Inversify)."
+      review_questions:
+        - "Are external boundaries properly abstracted behind interfaces and supplied via DI?"
+    evidence:
+      reference: "Architecture & State Blueprint"

@@ -1,0 +1,62 @@
+rules:
+  - id: LOG-001
+    name: Injected Logger
+    category: observability
+    severity: HIGH
+    description: Centralize all logging through an injected Logger abstraction wrapping platform logging APIs.
+    requirements:
+      - Feature code must use an injected Logger abstraction.
+    forbidden:
+      - Direct print or console calls from feature code.
+    enforcement: [STATIC, AI]
+    ai_guidance:
+      instructions:
+        - "Add logging using an injected Logger abstraction only — never console.log/print directly."
+      review_questions:
+        - "Does the feature code invoke print() or console.log() directly?"
+    evidence:
+      reference: "Observability Blueprint"
+
+  - id: LOG-002
+    name: Structured Logging
+    category: observability
+    severity: MEDIUM
+    description: Tag every log with a level and emit machine-queryable structured fields instead of free-text.
+    requirements:
+      - Support DEBUG, INFO, WARN, ERROR levels.
+      - Include metadata fields like userIdHash, requestId, and feature identifiers.
+    enforcement: [AI, STATIC]
+    ai_guidance:
+      instructions:
+        - "Tag each entry with a level and structured metadata (requestId, feature, userIdHash)."
+    evidence:
+      reference: "Observability Blueprint"
+
+  - id: LOG-003
+    name: Log Redaction
+    category: observability
+    severity: CRITICAL
+    description: Tokens, passwords, PII, and payment data must be non-loggable and explicitly redacted.
+    requirements:
+      - Sensitive data must be redacted or excluded from logs.
+    enforcement: [AI, STATIC, SECURITY]
+    ai_guidance:
+      instructions:
+        - "Never log tokens, passwords, or PII; redact them explicitly if the field must be referenced."
+    evidence:
+      reference: "Observability Blueprint"
+
+  - id: LOG-004
+    name: Production Log Routing
+    category: observability
+    severity: HIGH
+    description: Forward warnings/errors to remote sinks in Prod, while stripping debug messages from binaries.
+    requirements:
+      - Route WARN/ERROR to remote sinks (Crashlytics, Sentry).
+      - DEBUG logs must be compiled out of Production builds.
+    enforcement: [AI, CI]
+    ai_guidance:
+      instructions:
+        - "In Production builds, route WARN and ERROR logs to remote services and strip DEBUG logs."
+    evidence:
+      reference: "Observability Blueprint"

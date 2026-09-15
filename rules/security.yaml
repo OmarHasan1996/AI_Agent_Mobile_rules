@@ -1,0 +1,96 @@
+rules:
+  - id: SEC-001
+    name: Platform Cryptography
+    category: security
+    severity: CRITICAL
+    description: Use platform-level cryptography for sensitive data. Never implement custom cryptographic logic.
+    requirements:
+      - Use platform cryptographic capabilities.
+      - Use established secure cryptographic mechanisms.
+    forbidden:
+      - Custom encryption implementations.
+      - Insecure cryptographic implementations.
+    enforcement: [AI, SECURITY]
+    ai_guidance:
+      instructions:
+        - "Never let the AI generate custom encryption algorithms or use insecure local storage."
+      review_questions:
+        - "Is custom encryption being implemented?"
+    evidence:
+      reference: "Security-First Code Generation"
+
+  - id: SEC-002
+    name: Secure Storage
+    category: security
+    severity: CRITICAL
+    description: Sensitive user data or tokens must be persisted using hardware-backed secure storage via platform mechanisms.
+    requirements:
+      - Sensitive data must use secure storage mechanisms like Android EncryptedSharedPreferences or iOS Keychain.
+    forbidden:
+      - Insecure local storage for sensitive data (e.g., standard SharedPreferences or UserDefaults).
+    enforcement: [AI, SECURITY]
+    ai_guidance:
+      instructions:
+        - "Enforce using Android EncryptedSharedPreferences or iOS Keychain for sensitive data/tokens."
+      review_questions:
+        - "Is hardware-backed or encrypted storage used for sensitive user tokens?"
+    evidence:
+      reference: "Security-First Code Generation"
+
+  - id: SEC-003
+    name: No Hardcoded Secrets
+    category: security
+    severity: BLOCKER
+    description: Secrets and credentials must never be hardcoded. Abstract all keys behind an environment configuration layer.
+    requirements:
+      - Keys/Credentials must come from environment configuration.
+      - Production secrets must be injected during build or CI.
+    forbidden:
+      - API keys, credentials, or private keys in source code.
+    enforcement: [STATIC, SECURITY, CI]
+    validation:
+      type: secret_scan
+      checks: [hardcoded_credentials, api_keys, private_keys]
+    ai_guidance:
+      instructions:
+        - "Require the AI to abstract all keys behind an environment configuration layer."
+      review_questions:
+        - "Does the implementation contain any hardcoded credentials or API keys?"
+    evidence:
+      reference: "Security-First Code Generation"
+
+  - id: SEC-004
+    name: Secure Networking
+    category: security
+    severity: CRITICAL
+    description: All network communication must use explicit HTTPS configurations and protect sensitive data leakage.
+    requirements:
+      - Network communication must use HTTPS.
+      - Sensitive information must not leak through network errors.
+    enforcement: [AI, STATIC, SECURITY]
+    ai_guidance:
+      instructions:
+        - "Ensure all network models use explicit HTTPS configurations."
+      review_questions:
+        - "Are all network requests made over a secure HTTPS channel?"
+    evidence:
+      reference: "Security-First Code Generation"
+
+  - id: SEC-005
+    name: Sensitive Data Logging Protection
+    category: security
+    severity: CRITICAL
+    description: Tokens, passwords, PII, and payment data must be non-loggable and explicitly redacted or hashed.
+    requirements:
+      - Use strict memory hygiene for highly sensitive inputs.
+      - Use mutable data types or secure containers that can be zeroed out.
+    forbidden:
+      - Authentication tokens, passwords, PII, or payment data in logs.
+    enforcement: [AI, STATIC, SECURITY]
+    ai_guidance:
+      instructions:
+        - "For highly sensitive inputs, use mutable data types that can be explicitly zeroed out from memory after use."
+      review_questions:
+        - "Could this log contain a token, password, PII, or payment information?"
+    evidence:
+      reference: "Security-First Code Generation"

@@ -1,0 +1,77 @@
+rules:
+  - id: TEST-001
+    name: Mock External Boundaries
+    category: testing
+    severity: HIGH
+    description: Write interfaces for all external systems so they can be completely mocked out in unit tests.
+    requirements:
+      - API services, databases, and sensors must be testable behind interfaces.
+      - Side effects must be mockable.
+    forbidden:
+      - Using concrete network clients or live systems in the test target.
+    enforcement: [AI, TEST]
+    ai_guidance:
+      instructions:
+        - "Generate the repository implementation alongside a complete test suite using framework tools (e.g., MockK, XCTest)."
+      review_questions:
+        - "Are external boundaries properly abstracted behind mockable interfaces?"
+    evidence:
+      reference: "Testing Blueprints"
+
+  - id: TEST-002
+    name: Happy Path Coverage
+    category: testing
+    severity: HIGH
+    description: Every business logic block must include test cases covering successful execution paths.
+    requirements:
+      - Test successful execution paths.
+    enforcement: [TEST]
+    evidence:
+      reference: "Testing Blueprints"
+
+  - id: TEST-003
+    name: Boundary Case Coverage
+    category: testing
+    severity: HIGH
+    description: Verify business logic behavior against boundary edge cases like empty states or null handling.
+    requirements:
+      - Test boundary conditions (empty states, null values).
+    enforcement: [TEST]
+    evidence:
+      reference: "Testing Blueprints"
+
+  - id: TEST-004
+    name: Failure and Timeout States
+    category: testing
+    severity: HIGH
+    description: Verify business logic handling under explicit failure states and network timeouts.
+    requirements:
+      - Test explicit failure states, network failures, and timeout states.
+    enforcement: [TEST]
+    evidence:
+      reference: "Testing Blueprints"
+
+  - id: TEST-005
+    name: Given When Then
+    category: testing
+    severity: MEDIUM
+    description: Require tests to follow the Given-When-Then pattern for maximum readability.
+    requirements:
+      - Tests should use Given-When-Then structure.
+    enforcement: [AI, TEST]
+    ai_guidance:
+      instructions:
+        - "Format all test functions with explicit Given, When, and Then block partitions."
+    evidence:
+      reference: "Testing Blueprints"
+
+  - id: TEST-006
+    name: Branch Coverage
+    category: testing
+    severity: HIGH
+    description: The tests must achieve 100% branch coverage target across all generated implementations.
+    requirements:
+      - Branch coverage target is 100%.
+    enforcement: [TEST, CI]
+    evidence:
+      reference: "Testing Blueprints"

@@ -1,0 +1,45 @@
+rules:
+  - id: ENV-001
+    name: Environment Separation
+    category: environments
+    severity: CRITICAL
+    description: Provide multi-environment configuration separation via distinct flavors/schemes.
+    requirements:
+      - Support Dev, QA, and Production configurations.
+      - Each must use distinct app identifiers (applicationId/bundle suffix) and icons.
+    enforcement: [AI, STATIC, CI]
+    ai_guidance:
+      instructions:
+        - "Generate build configurations for three environments: dev, qa, prod."
+    evidence:
+      reference: "Environments Blueprint"
+
+  - id: ENV-002
+    name: Externalized Configuration
+    category: environments
+    severity: HIGH
+    description: Source all environment-specific values from build-time config instead of inline constants.
+    requirements:
+      - Base URLs, API keys, and Feature flags must be externally configurable.
+    forbidden:
+      - Hardcoded environment-specific production values in source.
+    enforcement: [STATIC, AI]
+    ai_guidance:
+      instructions:
+        - "Resolve API_BASE_URL, API_KEY, and LOG_LEVEL from environment files, never hardcoded."
+    evidence:
+      reference: "Environments Blueprint"
+
+  - id: ENV-003
+    name: Production Debug Protection
+    category: environments
+    severity: CRITICAL
+    description: Debug menus, verbose logs, and mock endpoints must be compiled out of Production targets.
+    requirements:
+      - Debug menus and mock endpoints must not be reachable in Production.
+    enforcement: [STATIC, AI, CI]
+    ai_guidance:
+      instructions:
+        - "Debug menus and verbose logging must be compiled out of the prod variant entirely."
+    evidence:
+      reference: "Environments Blueprint"
