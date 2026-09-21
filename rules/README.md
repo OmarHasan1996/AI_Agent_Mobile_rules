@@ -119,14 +119,14 @@ Rules automatically inherit these values unless explicitly overridden:
 
 The AI Engineering Agent intercepts any development or review query through a two-step cycle:
 
-1.  **Contract Retrieval**: When a task is requested (e.g., *"Create a registration feature"*), the Agent matches the context against the `scope` fields of the rule catalog and builds a localized **Engineering Contract**.
+1.  **Guardrail Retrieval**: When a task is requested (e.g., *"Create a registration feature"*), the Agent matches the context against the `scope` fields of the rule catalog and builds localized **Engineering Guardrails**.
 2.  **Dual Verification**:
     *   During **Generation**, the Agent maps `ai_guidance.instructions` into its system prompt instructions to synthesize compliant code natively.
     *   During **Review**, the Agent processes `ai_guidance.review_questions` to audit the code, creating a structured compliance report alongside automated tool gates (Linter, Unit Tests, Secret Scanners).
 
-## ▶️ Generate an Engineering Contract
+## ▶️ Generate Engineering Guardrails
 
-The .NET desktop application turns the catalog into a deterministic prompt contract for an AI coding or review agent. The catalog loader validates the schema, rejects duplicate or malformed rule IDs, and filters active rules by platform, language, environment, and project type. Launch it from the repository root:
+The .NET desktop application turns the catalog into deterministic engineering guardrails for an AI coding or review agent. The catalog loader validates the schema, rejects duplicate or malformed rule IDs, and filters active rules by platform, language, environment, and project type. Launch it from the repository root:
 
 ```bash
 dotnet run --project "AI Enoc Engineering Agent"

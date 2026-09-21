@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 
 namespace AI_Enoc_Engineering_Agent;
 
@@ -38,12 +39,12 @@ public sealed class MainWindow : Window
         _catalogService = catalogService ?? new RuleCatalogService();
         _contractService = contractService ?? new ContractService();
         _settingsService = settingsService ?? new UserSettingsService();
-        Title = "ENOC Engineering Contract Generator";
+        Title = "ENOC Engineering Guardrails";
         Width = 1160;
         Height = 820;
         MinWidth = 820;
         MinHeight = 620;
-        Background = new SolidColorBrush(Color.Parse("#F7F8FA"));
+        Background = new SolidColorBrush(Color.Parse("#F4F7F8"));
         _platformInput.SelectionChanged += (_, _) =>
         {
             UpdateLanguage();
@@ -64,7 +65,7 @@ public sealed class MainWindow : Window
 
     private Control BuildContent()
     {
-        var generateButton = new Button { Content = "Generate contract", Padding = new Thickness(22, 10) };
+        var generateButton = new Button { Content = "Generate guardrails", Padding = new Thickness(22, 10), Classes = { "primary" } };
         generateButton.Click += (_, _) => GenerateContract();
         var selectAllButton = new Button { Content = "Select all", Padding = new Thickness(14, 8) };
         selectAllButton.Click += (_, _) => SetRulesSelected(true);
@@ -89,9 +90,16 @@ public sealed class MainWindow : Window
         var saveButton = new Button { Content = "Save as...", Padding = new Thickness(18, 10) };
         saveButton.Click += async (_, _) => await SaveContract();
 
-        var header = new StackPanel { Spacing = 6 };
-        header.Children.Add(new TextBlock { Text = "ENOC Engineering Contract", FontSize = 30, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#152238")) });
-        header.Children.Add(new TextBlock { Text = "Choose your development context and the rules the AI must enforce.", FontSize = 15, Foreground = Brushes.Gray });
+        var headerCopy = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+        headerCopy.Children.Add(new TextBlock { Text = "ENOC Engineering Guardrails", FontSize = 28, FontWeight = FontWeight.Bold, Foreground = Brushes.White });
+        headerCopy.Children.Add(new TextBlock { Text = "Create consistent, reviewable engineering instructions for your AI agent.", FontSize = 14, Foreground = new SolidColorBrush(Color.Parse("#D7E8E8")) });
+        var header = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#123C46")),
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(22),
+            Child = headerCopy
+        };
 
         var form = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
         form.Children.Add(LabeledControl("Task or feature request", _taskInput, 0, 0, 4));
@@ -109,7 +117,7 @@ public sealed class MainWindow : Window
         ruleControls.Children.Add(ruleHeader);
         ruleControls.Children.Add(_ruleSearch);
         rulePanel.Children.Add(ruleControls);
-        var rulesScroll = new ScrollViewer { Content = _rulesList, MaxHeight = 190, Margin = new Thickness(0, 8, 0, 0) };
+        var rulesScroll = new ScrollViewer { Content = _rulesList, MaxHeight = 190, Margin = new Thickness(0, 12, 0, 0) };
         Grid.SetRow(rulesScroll, 1);
         rulePanel.Children.Add(rulesScroll);
 
@@ -120,22 +128,39 @@ public sealed class MainWindow : Window
         actions.Children.Add(_status);
         _status.VerticalAlignment = VerticalAlignment.Center;
 
-        var outputPanel = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
-        outputPanel.Children.Add(new TextBlock { Text = "Generated contract", FontSize = 18, FontWeight = FontWeight.SemiBold });
-        Grid.SetRow(_output, 1);
+        var outputPanel = new StackPanel { Spacing = 10 };
+        outputPanel.Children.Add(new TextBlock { Text = "Generated guardrails", FontSize = 18, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#123C46")) });
+        _output.Height = 360;
         outputPanel.Children.Add(_output);
 
-        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*"), Margin = new Thickness(34) };
-        layout.Children.Add(header);
-        Grid.SetRow(form, 1);
-        layout.Children.Add(form);
-        Grid.SetRow(rulePanel, 2);
-        layout.Children.Add(rulePanel);
-        Grid.SetRow(actions, 3);
-        layout.Children.Add(actions);
-        Grid.SetRow(outputPanel, 4);
-        layout.Children.Add(outputPanel);
-        return layout;
+        var pageContent = new StackPanel
+        {
+            Spacing = 16,
+            Margin = new Thickness(30),
+            Children =
+            {
+                header,
+                Card(form),
+                Card(rulePanel),
+                actions,
+                Card(outputPanel)
+            }
+        };
+        var page = new ScrollViewer
+        {
+            Content = pageContent,
+            VerticalContentAlignment = VerticalAlignment.Top,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
+        };
+        page.AttachedToVisualTree += (_, _) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                page.Offset = new Vector(0, 0);
+                _taskInput.Focus();
+            }, DispatcherPriority.Loaded);
+        };
+        return page;
     }
 
     private void LoadRules()
@@ -189,7 +214,7 @@ public sealed class MainWindow : Window
         var extension = _formatInput.SelectedItem?.ToString() == "json" ? "json" : "md";
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save engineering contract",
+            Title = "Save engineering guardrails",
             SuggestedFileName = $"engineering-contract.{extension}",
             FileTypeChoices = new[] { new FilePickerFileType(extension.ToUpperInvariant()) { Patterns = new[] { $"*.{extension}" } } }
         });
@@ -307,7 +332,7 @@ public sealed class MainWindow : Window
                 _platformInput.SelectedItem?.ToString() ?? "android",
                 _environmentInput.SelectedItem?.ToString() ?? "dev",
                 _formatInput.SelectedItem?.ToString() ?? "markdown",
-                new HashSet<string>(_selectedRuleIds, StringComparer.OrdinalIgnoreCase)));
+                _selectedRuleIds.OrderBy(ruleId => ruleId).ToArray()));
         }
         catch (IOException)
         {
@@ -327,18 +352,29 @@ public sealed class MainWindow : Window
 
     private static Control LabeledControl(string label, Control control, int column, int row, int columnSpan = 1, string? description = null)
     {
-        var panel = new StackPanel { Spacing = 5 };
-        var labelBlock = new TextBlock { Text = label, FontWeight = FontWeight.SemiBold };
+        var panel = new StackPanel { Spacing = 7 };
+        var labelBlock = new TextBlock { Text = label, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#123C46")) };
         if (description is not null) ToolTip.SetTip(labelBlock, description);
         panel.Children.Add(labelBlock);
         panel.Children.Add(control);
         Grid.SetColumn(panel, column);
         Grid.SetRow(panel, row);
         Grid.SetColumnSpan(panel, columnSpan);
+        panel.Margin = new Thickness(column == 3 ? 0 : 0, row == 1 ? 10 : 0, column == 3 ? 0 : 10, 0);
         return panel;
     }
 
     private static ComboBox CreateComboBox(params string[] values) => new() { ItemsSource = values, SelectedIndex = 0, MinHeight = 42 };
+
+    private static Border Card(Control content) => new()
+    {
+        Background = Brushes.White,
+        BorderBrush = new SolidColorBrush(Color.Parse("#DCE7E8")),
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(12),
+        Padding = new Thickness(20),
+        Child = content
+    };
 
     private static void SelectValue(ComboBox comboBox, string value)
     {
