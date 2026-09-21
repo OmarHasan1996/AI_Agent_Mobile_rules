@@ -119,4 +119,20 @@ public sealed class RuleCatalogTests
         Assert.Contains("Create \\[secure\\] \\*login\\* \\#1", markdown);
         Assert.DoesNotContain("Create [secure] *login* #1", markdown);
     }
+
+    [Fact]
+    public void UserSettings_RoundTripSelectedRuleIds()
+    {
+        var settings = new UserSettings(
+            "Login",
+            "android",
+            "dev",
+            "markdown",
+            new[] { "ARCH-001", "SEC-003" });
+        var json = System.Text.Json.JsonSerializer.Serialize(settings);
+        var restored = System.Text.Json.JsonSerializer.Deserialize<UserSettings>(json);
+
+        Assert.NotNull(restored);
+        Assert.Equal(new[] { "ARCH-001", "SEC-003" }, restored!.SelectedRuleIds);
+    }
 }

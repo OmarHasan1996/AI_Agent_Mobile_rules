@@ -34,7 +34,7 @@ public sealed record UserSettings(
     string Platform,
     string Environment,
     string Format,
-    IReadOnlySet<string> SelectedRuleIds);
+    IReadOnlyList<string> SelectedRuleIds);
 
 public interface IUserSettingsService
 {
@@ -63,6 +63,10 @@ public sealed class UserSettingsService : IUserSettingsService
         {
             return Defaults();
         }
+        catch (NotSupportedException)
+        {
+            return Defaults();
+        }
         catch (IOException)
         {
             return Defaults();
@@ -80,5 +84,5 @@ public sealed class UserSettingsService : IUserSettingsService
     }
 
     private static UserSettings Defaults() =>
-        new(string.Empty, "android", "dev", "markdown", new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        new(string.Empty, "android", "dev", "markdown", Array.Empty<string>());
 }
