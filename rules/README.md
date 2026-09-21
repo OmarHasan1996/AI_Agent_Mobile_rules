@@ -83,7 +83,7 @@ Rules automatically inherit these values unless explicitly overridden:
 
 ---
 
-## 📑 Rule Catalog Matrix (26 Core Rules)
+## 📑 Rule Catalog Matrix (25 Core Rules)
 
 | ID | Rule Name | Category | Default Severity | Enforcement |
 | :--- | :--- | :--- | :--- | :--- |
@@ -123,3 +123,13 @@ The AI Engineering Agent intercepts any development or review query through a tw
 2.  **Dual Verification**:
     *   During **Generation**, the Agent maps `ai_guidance.instructions` into its system prompt instructions to synthesize compliant code natively.
     *   During **Review**, the Agent processes `ai_guidance.review_questions` to audit the code, creating a structured compliance report alongside automated tool gates (Linter, Unit Tests, Secret Scanners).
+
+## ▶️ Generate an Engineering Contract
+
+The .NET desktop application turns the catalog into a deterministic prompt contract for an AI coding or review agent. Launch it from the repository root:
+
+```bash
+dotnet run --project "AI Enoc Engineering Agent"
+```
+
+Use the task field, platform, language, environment, and output format selectors, then choose the rules to apply. The platform selects the development language automatically: Android uses Kotlin, iOS uses Swift, and Multiplatform uses Flutter (Dart). The environment represents the deployment target: Dev is local development, QA is shared testing, and Production is the release configuration; it provides context for rules covering debug protection, logging, signing, and distribution. The **Copy** and **Save as...** actions export the result for an AI coding or review agent. The generated contract includes only the selected rules, plus the task context, AI instructions, forbidden patterns, review questions, and completion gates.
