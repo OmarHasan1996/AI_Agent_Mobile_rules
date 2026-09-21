@@ -106,4 +106,17 @@ public sealed class RuleCatalogTests
         Assert.Equal("1.0", catalog.SchemaVersion);
         Assert.Equal(25, catalog.Rules.Count);
     }
+
+    [Fact]
+    public void MarkdownOutput_EscapesTaskFormattingCharacters()
+    {
+        var contract = EngineeringContractGenerator.Create(
+            new ContractContext("Create [secure] *login* #1", "android", "Kotlin", "dev", "mobile"),
+            Array.Empty<EngineeringRule>());
+
+        var markdown = EngineeringContractGenerator.ToMarkdown(contract);
+
+        Assert.Contains("Create \\[secure\\] \\*login\\* \\#1", markdown);
+        Assert.DoesNotContain("Create [secure] *login* #1", markdown);
+    }
 }

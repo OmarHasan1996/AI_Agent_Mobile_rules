@@ -31,13 +31,13 @@ public static class EngineeringContractGenerator
         output.AppendLine("Use this contract as the non-negotiable engineering policy for the requested work.");
         output.AppendLine();
         output.AppendLine("## Context");
-        output.AppendLine($"- **Catalog schema:** {contract.CatalogSchemaVersion}");
+        output.AppendLine($"- **Catalog schema:** {EscapeInline(contract.CatalogSchemaVersion)}");
         output.AppendLine($"- **Generated (UTC):** {contract.GeneratedAtUtc:O}");
-        output.AppendLine($"- **Task:** {contract.Context.Task}");
-        output.AppendLine($"- **Platform:** {contract.Context.Platform}");
-        output.AppendLine($"- **Development language:** {contract.Context.DevelopmentLanguage}");
-        output.AppendLine($"- **Environment:** {contract.Context.Environment}");
-        output.AppendLine($"- **Project type:** {contract.Context.ProjectType}");
+        output.AppendLine($"- **Task:** {EscapeInline(contract.Context.Task)}");
+        output.AppendLine($"- **Platform:** {EscapeInline(contract.Context.Platform)}");
+        output.AppendLine($"- **Development language:** {EscapeInline(contract.Context.DevelopmentLanguage)}");
+        output.AppendLine($"- **Environment:** {EscapeInline(contract.Context.Environment)}");
+        output.AppendLine($"- **Project type:** {EscapeInline(contract.Context.ProjectType)}");
         output.AppendLine();
         output.AppendLine("## Agent instructions");
         output.AppendLine("- Act as a Principal Mobile Engineer.");
@@ -80,7 +80,18 @@ public static class EngineeringContractGenerator
         output.AppendLine($"**{title}:**");
         foreach (var item in items)
         {
-            output.AppendLine($"- {item.Trim()}");
+            output.AppendLine($"- {EscapeInline(item.Trim())}");
         }
     }
+
+    private static string EscapeInline(string value) =>
+        value.Replace("\\", "\\\\")
+            .Replace("`", "\\`")
+            .Replace("*", "\\*")
+            .Replace("_", "\\_")
+            .Replace("[", "\\[")
+            .Replace("]", "\\]")
+            .Replace("#", "\\#")
+            .Replace("\r", " ")
+            .Replace("\n", " ");
 }

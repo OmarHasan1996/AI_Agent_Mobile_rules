@@ -10,11 +10,13 @@ public sealed class MainWindow : Window
 {
     private readonly IRuleCatalogService _catalogService;
     private readonly IContractService _contractService;
+    private readonly IUserSettingsService _settingsService;
     private readonly TextBox _taskInput = new() { Watermark = "Example: Create a secure employee login feature", MinHeight = 42 };
     private readonly ComboBox _platformInput = CreateComboBox("android", "ios", "multiplatform");
     private readonly TextBox _languageInput = new() { IsReadOnly = true, Text = "Kotlin", MinHeight = 42 };
     private readonly ComboBox _environmentInput = CreateComboBox("dev", "qa", "production");
     private readonly ComboBox _formatInput = CreateComboBox("markdown", "json");
+    private readonly TextBox _ruleSearch = new() { Watermark = "Search rules by ID, name, category, or severity...", MinHeight = 38 };
     private readonly StackPanel _rulesList = new() { Spacing = 4 };
     private readonly TextBox _output = new()
     {
@@ -25,11 +27,17 @@ public sealed class MainWindow : Window
     };
     private readonly TextBlock _status = new() { Foreground = Brushes.Gray };
     private RuleCatalog? _catalog;
+    private readonly HashSet<string> _selectedRuleIds = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<EngineeringRule> _applicableRules = Array.Empty<EngineeringRule>();
 
-    public MainWindow(IRuleCatalogService? catalogService = null, IContractService? contractService = null)
+    public MainWindow(
+        IRuleCatalogService? catalogService = null,
+        IContractService? contractService = null,
+        IUserSettingsService? settingsService = null)
     {
         _catalogService = catalogService ?? new RuleCatalogService();
         _contractService = contractService ?? new ContractService();
+        _settingsService = settingsService ?? new UserSettingsService();
         Title = "ENOC Engineering Contract Generator";
         Width = 1160;
         Height = 820;
@@ -40,9 +48,17 @@ public sealed class MainWindow : Window
         {
             UpdateLanguage();
             RefreshApplicableRules();
+            SaveSettings();
         };
-        _environmentInput.SelectionChanged += (_, _) => RefreshApplicableRules();
+        _environmentInput.SelectionChanged += (_, _) =>
+        {
+            RefreshApplicableRules();
+            SaveSettings();
+        };
+        _formatInput.SelectionChanged += (_, _) => SaveSettings();
+        _ruleSearch.TextChanged += (_, _) => RefreshRuleList();
         Content = BuildContent();
+        RestoreSettings();
         LoadRules();
     }
 
@@ -89,7 +105,10 @@ public sealed class MainWindow : Window
         ruleHeader.Children.Add(selectAllButton);
         ruleHeader.Children.Add(clearAllButton);
         var rulePanel = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
-        rulePanel.Children.Add(ruleHeader);
+        var ruleControls = new StackPanel { Spacing = 8 };
+        ruleControls.Children.Add(ruleHeader);
+        ruleControls.Children.Add(_ruleSearch);
+        rulePanel.Children.Add(ruleControls);
         var rulesScroll = new ScrollViewer { Content = _rulesList, MaxHeight = 190, Margin = new Thickness(0, 8, 0, 0) };
         Grid.SetRow(rulesScroll, 1);
         rulePanel.Children.Add(rulesScroll);
@@ -140,10 +159,7 @@ public sealed class MainWindow : Window
             return;
         }
 
-        var selectedRules = _rulesList.Children.OfType<CheckBox>()
-            .Where(checkBox => checkBox.IsChecked == true)
-            .Select(checkBox => (EngineeringRule)checkBox.Tag!)
-            .ToArray();
+        var selectedRules = _applicableRules.Where(rule => _selectedRuleIds.Contains(rule.Id)).ToArray();
         if (selectedRules.Length == 0)
         {
             _status.Text = "Select at least one rule.";
@@ -159,6 +175,7 @@ public sealed class MainWindow : Window
         var contract = _contractService.Generate(context, selectedRules, _catalog?.SchemaVersion ?? "unknown");
         _output.Text = _contractService.Render(contract, _formatInput.SelectedItem?.ToString() ?? "markdown");
         _status.Text = $"{selectedRules.Length} rules included.";
+        SaveSettings();
     }
 
     private async Task SaveContract()
@@ -193,8 +210,15 @@ public sealed class MainWindow : Window
 
     private void SetRulesSelected(bool selected)
     {
-        foreach (var checkBox in _rulesList.Children.OfType<CheckBox>())
-            checkBox.IsChecked = selected;
+        foreach (var rule in _applicableRules)
+        {
+            if (selected)
+                _selectedRuleIds.Add(rule.Id);
+            else
+                _selectedRuleIds.Remove(rule.Id);
+        }
+        RefreshRuleList();
+        SaveSettings();
     }
 
     private void RefreshApplicableRules()
@@ -209,18 +233,86 @@ public sealed class MainWindow : Window
             _environmentInput.SelectedItem?.ToString() ?? "dev",
             "mobile");
         var applicableRules = _catalog.ApplicableTo(context);
+        _applicableRules = applicableRules;
+        var selectedForContext = _selectedRuleIds.Count == 0
+            ? applicableRules.Select(rule => rule.Id)
+            : _selectedRuleIds.Intersect(applicableRules.Select(rule => rule.Id), StringComparer.OrdinalIgnoreCase);
+        _selectedRuleIds.Clear();
+        foreach (var ruleId in selectedForContext)
+            _selectedRuleIds.Add(ruleId);
+        RefreshRuleList();
+        _status.Text = $"{applicableRules.Count} applicable rules loaded; {_selectedRuleIds.Count} selected.";
+    }
+
+    private void RefreshRuleList()
+    {
+        if (_catalog is null)
+            return;
+
+        var filter = _ruleSearch.Text?.Trim() ?? string.Empty;
         _rulesList.Children.Clear();
-        foreach (var rule in applicableRules)
+        var visibleRules = _applicableRules
+            .Where(rule => string.IsNullOrEmpty(filter) ||
+                $"{rule.Id} {rule.Name} {rule.Category} {rule.Severity}".Contains(filter, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(rule => rule.Category, StringComparer.OrdinalIgnoreCase);
+        foreach (var category in visibleRules)
         {
-            _rulesList.Children.Add(new CheckBox
+            _rulesList.Children.Add(new TextBlock
             {
-                Content = $"{rule.Id} - {rule.Name} ({rule.Severity})",
-                Tag = rule,
-                IsChecked = true,
-                Margin = new Thickness(4, 2)
+                Text = category.Key.ToUpperInvariant(),
+                FontWeight = FontWeight.Bold,
+                Foreground = Brushes.Gray,
+                Margin = new Thickness(4, 8, 4, 2)
             });
+            foreach (var rule in category)
+            {
+                var checkBox = new CheckBox
+                {
+                    Content = $"{rule.Id} - {rule.Name} ({rule.Severity})",
+                    Tag = rule,
+                    IsChecked = _selectedRuleIds.Contains(rule.Id),
+                    Margin = new Thickness(4, 2)
+                };
+                checkBox.IsCheckedChanged += (_, _) =>
+                {
+                    if (checkBox.IsChecked == true)
+                        _selectedRuleIds.Add(rule.Id);
+                    else
+                        _selectedRuleIds.Remove(rule.Id);
+                    SaveSettings();
+                };
+                _rulesList.Children.Add(checkBox);
+            }
         }
-        _status.Text = $"{applicableRules.Count} applicable rules loaded.";
+    }
+
+    private void RestoreSettings()
+    {
+        var settings = _settingsService.Load();
+        _taskInput.Text = settings.Task;
+        SelectValue(_platformInput, settings.Platform);
+        SelectValue(_environmentInput, settings.Environment);
+        SelectValue(_formatInput, settings.Format);
+        foreach (var ruleId in settings.SelectedRuleIds)
+            _selectedRuleIds.Add(ruleId);
+        UpdateLanguage();
+    }
+
+    private void SaveSettings()
+    {
+        try
+        {
+            _settingsService.Save(new UserSettings(
+                _taskInput.Text?.Trim() ?? string.Empty,
+                _platformInput.SelectedItem?.ToString() ?? "android",
+                _environmentInput.SelectedItem?.ToString() ?? "dev",
+                _formatInput.SelectedItem?.ToString() ?? "markdown",
+                new HashSet<string>(_selectedRuleIds, StringComparer.OrdinalIgnoreCase)));
+        }
+        catch (IOException)
+        {
+            _status.Text = "Settings could not be saved; your contract is still available.";
+        }
     }
 
     private void UpdateLanguage()
@@ -247,4 +339,14 @@ public sealed class MainWindow : Window
     }
 
     private static ComboBox CreateComboBox(params string[] values) => new() { ItemsSource = values, SelectedIndex = 0, MinHeight = 42 };
+
+    private static void SelectValue(ComboBox comboBox, string value)
+    {
+        var index = comboBox.ItemsSource
+            ?.Cast<string>()
+            .ToList()
+            .FindIndex(item => item.Equals(value, StringComparison.OrdinalIgnoreCase)) ?? -1;
+        if (index >= 0)
+            comboBox.SelectedIndex = index;
+    }
 }
