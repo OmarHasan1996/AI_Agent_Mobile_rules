@@ -12,14 +12,16 @@ public sealed record ContractContext(
 
 public sealed class EngineeringContract
 {
+    public string CatalogSchemaVersion { get; init; } = string.Empty;
+    public DateTime GeneratedAtUtc { get; init; } = DateTime.UtcNow;
     public ContractContext Context { get; init; } = new("", "", "", "", "");
     public IReadOnlyList<EngineeringRule> Rules { get; init; } = Array.Empty<EngineeringRule>();
 }
 
 public static class EngineeringContractGenerator
 {
-    public static EngineeringContract Create(ContractContext context, IReadOnlyList<EngineeringRule> rules) =>
-        new() { Context = context, Rules = rules };
+    public static EngineeringContract Create(ContractContext context, IReadOnlyList<EngineeringRule> rules, string catalogSchemaVersion = "unknown") =>
+        new() { CatalogSchemaVersion = catalogSchemaVersion, Context = context, Rules = rules };
 
     public static string ToMarkdown(EngineeringContract contract)
     {
@@ -29,6 +31,8 @@ public static class EngineeringContractGenerator
         output.AppendLine("Use this contract as the non-negotiable engineering policy for the requested work.");
         output.AppendLine();
         output.AppendLine("## Context");
+        output.AppendLine($"- **Catalog schema:** {contract.CatalogSchemaVersion}");
+        output.AppendLine($"- **Generated (UTC):** {contract.GeneratedAtUtc:O}");
         output.AppendLine($"- **Task:** {contract.Context.Task}");
         output.AppendLine($"- **Platform:** {contract.Context.Platform}");
         output.AppendLine($"- **Development language:** {contract.Context.DevelopmentLanguage}");

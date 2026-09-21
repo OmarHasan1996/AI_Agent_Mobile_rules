@@ -8,6 +8,8 @@ namespace AI_Enoc_Engineering_Agent;
 
 public sealed class MainWindow : Window
 {
+    private readonly IRuleCatalogService _catalogService;
+    private readonly IContractService _contractService;
     private readonly TextBox _taskInput = new() { Watermark = "Example: Create a secure employee login feature", MinHeight = 42 };
     private readonly ComboBox _platformInput = CreateComboBox("android", "ios", "multiplatform");
     private readonly TextBox _languageInput = new() { IsReadOnly = true, Text = "Kotlin", MinHeight = 42 };
@@ -22,17 +24,24 @@ public sealed class MainWindow : Window
         FontFamily = new FontFamily("Cascadia Mono, Menlo, monospace")
     };
     private readonly TextBlock _status = new() { Foreground = Brushes.Gray };
-    private IReadOnlyList<EngineeringRule> _availableRules = Array.Empty<EngineeringRule>();
+    private RuleCatalog? _catalog;
 
-    public MainWindow()
+    public MainWindow(IRuleCatalogService? catalogService = null, IContractService? contractService = null)
     {
+        _catalogService = catalogService ?? new RuleCatalogService();
+        _contractService = contractService ?? new ContractService();
         Title = "ENOC Engineering Contract Generator";
         Width = 1160;
         Height = 820;
         MinWidth = 820;
         MinHeight = 620;
         Background = new SolidColorBrush(Color.Parse("#F7F8FA"));
-        _platformInput.SelectionChanged += (_, _) => UpdateLanguage();
+        _platformInput.SelectionChanged += (_, _) =>
+        {
+            UpdateLanguage();
+            RefreshApplicableRules();
+        };
+        _environmentInput.SelectionChanged += (_, _) => RefreshApplicableRules();
         Content = BuildContent();
         LoadRules();
     }
@@ -48,10 +57,17 @@ public sealed class MainWindow : Window
         var copyButton = new Button { Content = "Copy", Padding = new Thickness(18, 10) };
         copyButton.Click += async (_, _) =>
         {
-            if (!string.IsNullOrWhiteSpace(_output.Text))
+            if (!string.IsNullOrWhiteSpace(_output.Text) && Clipboard is not null)
             {
-                await Clipboard!.SetTextAsync(_output.Text);
-                _status.Text = "Contract copied to clipboard.";
+                try
+                {
+                    await Clipboard.SetTextAsync(_output.Text);
+                    _status.Text = "Contract copied to clipboard.";
+                }
+                catch (Exception exception) when (exception is InvalidOperationException or IOException)
+                {
+                    _status.Text = $"Unable to copy contract: {exception.Message}";
+                }
             }
         };
         var saveButton = new Button { Content = "Save as...", Padding = new Thickness(18, 10) };
@@ -107,18 +123,8 @@ public sealed class MainWindow : Window
     {
         try
         {
-            _availableRules = RuleCatalogLoader.Load(Path.Combine(AppContext.BaseDirectory, "rules"));
-            foreach (var rule in _availableRules)
-            {
-                _rulesList.Children.Add(new CheckBox
-                {
-                    Content = $"{rule.Id} - {rule.Name} ({rule.Severity})",
-                    Tag = rule,
-                    IsChecked = true,
-                    Margin = new Thickness(4, 2)
-                });
-            }
-            _status.Text = $"{_availableRules.Count} rules loaded.";
+            _catalog = _catalogService.Load(Path.Combine(AppContext.BaseDirectory, "rules"));
+            RefreshApplicableRules();
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or DirectoryNotFoundException)
         {
@@ -150,10 +156,8 @@ public sealed class MainWindow : Window
             _languageInput.Text ?? "Kotlin",
             _environmentInput.SelectedItem?.ToString() ?? "dev",
             "mobile");
-        var contract = EngineeringContractGenerator.Create(context, selectedRules);
-        _output.Text = _formatInput.SelectedItem?.ToString() == "json"
-            ? EngineeringContractGenerator.ToJson(contract)
-            : EngineeringContractGenerator.ToMarkdown(contract);
+        var contract = _contractService.Generate(context, selectedRules, _catalog?.SchemaVersion ?? "unknown");
+        _output.Text = _contractService.Render(contract, _formatInput.SelectedItem?.ToString() ?? "markdown");
         _status.Text = $"{selectedRules.Length} rules included.";
     }
 
@@ -174,16 +178,49 @@ public sealed class MainWindow : Window
         });
         if (file is null) return;
 
-        await using var stream = await file.OpenWriteAsync();
-        await using var writer = new StreamWriter(stream);
-        await writer.WriteAsync(_output.Text);
-        _status.Text = "Contract saved.";
+        try
+        {
+            await using var stream = await file.OpenWriteAsync();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(_output.Text);
+            _status.Text = "Contract saved.";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _status.Text = $"Unable to save contract: {exception.Message}";
+        }
     }
 
     private void SetRulesSelected(bool selected)
     {
         foreach (var checkBox in _rulesList.Children.OfType<CheckBox>())
             checkBox.IsChecked = selected;
+    }
+
+    private void RefreshApplicableRules()
+    {
+        if (_catalog is null)
+            return;
+
+        var context = new ContractContext(
+            _taskInput.Text?.Trim() ?? string.Empty,
+            _platformInput.SelectedItem?.ToString() ?? "android",
+            _languageInput.Text ?? "Kotlin",
+            _environmentInput.SelectedItem?.ToString() ?? "dev",
+            "mobile");
+        var applicableRules = _catalog.ApplicableTo(context);
+        _rulesList.Children.Clear();
+        foreach (var rule in applicableRules)
+        {
+            _rulesList.Children.Add(new CheckBox
+            {
+                Content = $"{rule.Id} - {rule.Name} ({rule.Severity})",
+                Tag = rule,
+                IsChecked = true,
+                Margin = new Thickness(4, 2)
+            });
+        }
+        _status.Text = $"{applicableRules.Count} applicable rules loaded.";
     }
 
     private void UpdateLanguage()
