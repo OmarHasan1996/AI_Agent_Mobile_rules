@@ -126,10 +126,16 @@ The AI Engineering Agent intercepts any development or review query through a tw
 
 ## ▶️ Generate an Engineering Contract
 
-The .NET desktop application turns the catalog into a deterministic prompt contract for an AI coding or review agent. Launch it from the repository root:
+The .NET desktop application turns the catalog into a deterministic prompt contract for an AI coding or review agent. The catalog loader validates the schema, rejects duplicate or malformed rule IDs, and filters active rules by platform, language, environment, and project type. Launch it from the repository root:
 
 ```bash
 dotnet run --project "AI Enoc Engineering Agent"
 ```
 
-Use the task field, platform, language, environment, and output format selectors, then choose the rules to apply. The platform selects the development language automatically: Android uses Kotlin, iOS uses Swift, and Multiplatform uses Flutter (Dart). The environment represents the deployment target: Dev is local development, QA is shared testing, and Production is the release configuration; it provides context for rules covering debug protection, logging, signing, and distribution. The **Copy** and **Save as...** actions export the result for an AI coding or review agent. The generated contract includes only the selected rules, plus the task context, AI instructions, forbidden patterns, review questions, and completion gates.
+Use the task field, platform, language, environment, and output format selectors, then choose the rules to apply. The platform selects the development language automatically: Android uses Kotlin, iOS uses Swift, and Multiplatform uses Flutter (Dart). The environment represents the deployment target: Dev is local development, QA is shared testing, and Production is the release configuration; it provides context for rules covering debug protection, logging, signing, and distribution. The **Copy** and **Save as...** actions export the result for an AI coding or review agent. The generated contract includes only the selected applicable rules, catalog schema metadata, generation timestamp, task context, AI instructions, forbidden patterns, review questions, and completion gates.
+
+Automated catalog and contract tests are in `AI Enoc Engineering Agent.Tests`; run them with:
+
+```bash
+dotnet test "AI Enoc Engineering Agent.Tests/AI Enoc Engineering Agent.Tests.csproj"
+```
