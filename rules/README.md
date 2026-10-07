@@ -1,4 +1,4 @@
-# ENOC Engineering Rule Catalog v1.0
+# ENOC Engineering Rule Catalog v2.0
 
 This directory contains the foundational **Engineering Rule Schema and Catalog** for the ENOC AI Engineering Agent. These rules govern architectural constraints, security standards, code quality, observability, environments, and CI/CD parameters across all mobile platform development (Android, iOS, and Multiplatform).
 
@@ -22,7 +22,7 @@ rules/
 
 ---
 
-## ⚙️ Core Schema Components
+## ⚙️ Core Schema Components (v2)
 
 As defined in `config.yaml`, the rule engine runs on standard dimensions:
 
@@ -46,7 +46,7 @@ Rules can combine multiple automated check vectors:
 
 ## 🏗️ Rule Structure & Schema
 
-Every rule in the catalog follows a standardized YAML model. To reduce redundancy and improve readability, common properties are inherited from the `defaults:` section in `config.yaml`.
+Every rule in the catalog follows a versioned YAML model. The loader strictly validates required fields, enum values, enforcement mechanisms, validation types, duplicate IDs, and dependency references. Common properties are inherited from the `defaults:` section in `config.yaml`, while rule-level values override those defaults.
 
 ### 1. The Rule Model (Individual Files)
 ```yaml
@@ -54,6 +54,16 @@ id: "UNIQUE-ID"              # e.g., ARCH-001
 name: "Descriptive Title"
 category: "architecture"     # architecture, security, testing, etc.
 severity: "CRITICAL"         # See severity levels above
+version: "1.0"
+status: "ACTIVE"             # DRAFT, REVIEW, APPROVED, ACTIVE, ...
+required: false              # Required guardrails cannot be omitted
+depends_on: ["ARCH-001"]     # Optional prerequisite rule IDs
+
+scope:
+  platforms: ["android"]
+  languages: ["Kotlin"]
+  project_types: ["mobile"]
+  environments: ["dev", "qa", "production"]
 
 description: >
   High-level overview of the rule's purpose.
@@ -72,6 +82,10 @@ ai_guidance:
 
 evidence:
   reference: "Specific doc"  # Source material identifier
+
+validation:
+  type: "secret_scan"        # secret_scan, static_analysis, test, build, manual_review
+  checks: ["hardcoded_credentials"]
 ```
 
 ### 2. Global Defaults (`config.yaml`)
@@ -83,7 +97,7 @@ Rules automatically inherit these values unless explicitly overridden:
 
 ---
 
-## 📑 Rule Catalog Matrix (25 Core Rules)
+## 📑 Rule Catalog Matrix (27 Core Rules)
 
 | ID | Rule Name | Category | Default Severity | Enforcement |
 | :--- | :--- | :--- | :--- | :--- |
@@ -91,6 +105,8 @@ Rules automatically inherit these values unless explicitly overridden:
 | **ARCH-002** | Unidirectional Data Flow | Architecture | `HIGH` | `AI`, `STATIC` |
 | **ARCH-003** | Passive View | Architecture | `HIGH` | `AI`, `STATIC` |
 | **ARCH-004** | Dependency Injection | Architecture | `HIGH` | `AI`, `STATIC` |
+| **ARCH-005** | Reusable Custom UI Widgets | Architecture | `HIGH` | `AI`, `STATIC`, `TEST` |
+| **ARCH-006** | Centralized Theme and Typography System | Architecture | `HIGH` | `AI`, `STATIC`, `TEST` |
 | **SEC-001** | Platform Cryptography | Security | `CRITICAL` | `AI`, `SECURITY` |
 | **SEC-002** | Secure Storage | Security | `CRITICAL` | `AI`, `SECURITY` |
 | **SEC-003** | No Hardcoded Secrets | Security | `BLOCKER` | `STATIC`, `SECURITY`, `CI` |
@@ -117,6 +133,8 @@ Rules automatically inherit these values unless explicitly overridden:
 
 ## 🤖 How the Agent Utilizes These Rules
 
+The architecture rules require recurring application controls (for example, buttons and text fields) to use a shared custom-widget library. They also require a centralized design system with light and dark palettes, shared semantic color and typography tokens, and consistent accessible presentation across screens.
+
 The AI Engineering Agent intercepts any development or review query through a two-step cycle:
 
 1.  **Guardrail Retrieval**: When a task is requested (e.g., *"Create a registration feature"*), the Agent matches the context against the `scope` fields of the rule catalog and builds localized **Engineering Guardrails**.
@@ -126,11 +144,20 @@ The AI Engineering Agent intercepts any development or review query through a tw
 
 ## ▶️ Generate Engineering Guardrails
 
-The .NET desktop application turns the catalog into deterministic engineering guardrails for an AI coding or review agent. The catalog loader validates the schema, rejects duplicate or malformed rule IDs, and filters active rules by platform, language, environment, and project type. Launch it from the repository root:
+The .NET desktop application turns the catalog into deterministic engineering guardrails for an AI coding or review agent. The catalog loader validates the v2 schema, rejects duplicate or malformed rule IDs, checks dependency references and validation types, and filters active rules by platform, language, environment, and project type. Launch it from the repository root:
 
 ```bash
 dotnet run --project "AI Enoc Engineering Agent"
 ```
+
+## Repository Review mode
+
+The desktop application supports two modes:
+
+- **Generate** creates guardrails for a task using the selected context and rules.
+- **Review** lets you choose a local repository, then scans supported source and configuration files for forbidden patterns from the selected applicable rules. `.git`, `bin`, `obj`, and `node_modules` are excluded. Results include the rule, severity, relative file path, line number, and matched pattern and can be copied or saved as Markdown or JSON.
+
+Review mode is deterministic and local-only. It does not upload repository contents or claim that checks outside the selected rule metadata were executed.
 
 Use the task field, platform, language, environment, and output format selectors, then choose the rules to apply. The rule panel supports search, category grouping, Select all, and Clear all for larger catalogs. Your task, context, format, and rule selections are persisted in the user application-data directory so the workspace can be resumed safely. The platform selects the development language automatically: Android uses Kotlin, iOS uses Swift, and Multiplatform uses Flutter (Dart). The environment represents the deployment target: Dev is local development, QA is shared testing, and Production is the release configuration; it provides context for rules covering debug protection, logging, signing, and distribution. The **Copy** and **Save as...** actions export the result for an AI coding or review agent. Markdown output escapes user-entered context values so task text cannot alter the contract structure. The generated contract includes only the selected applicable rules, catalog schema metadata, generation timestamp, task context, AI instructions, forbidden patterns, review questions, and completion gates.
 

@@ -94,3 +94,68 @@ rules:
         - "Are external boundaries properly abstracted behind interfaces and supplied via DI?"
     evidence:
       reference: "Architecture & State Blueprint"
+
+  - id: ARCH-005
+    name: Reusable Custom UI Widgets
+    category: architecture
+    severity: HIGH
+    description: >
+      Shared application controls must be implemented as reusable, accessible custom widgets
+      so their behavior and presentation remain consistent across features and platforms.
+    requirements:
+      - Provide shared custom widgets for recurring application controls such as buttons, text fields, selection controls, and dialogs.
+      - Build feature screens from the shared widgets instead of styling equivalent platform controls independently.
+      - Expose intentional variants and state through typed parameters rather than duplicating widgets for minor visual differences.
+      - Support accessibility semantics, keyboard or screen-reader interaction, and enabled, focused, error, and loading states where relevant.
+      - Keep widgets presentational; delegate business behavior and state transitions to the owning presentation layer.
+    forbidden:
+      - Repeated feature-specific implementations of the same application control.
+      - Direct use of raw platform controls for application-wide shared controls when an approved custom widget exists.
+      - Business rules, data access, or feature-specific side effects inside reusable widgets.
+      - Inconsistent control behavior or styling caused by bypassing the shared widget library.
+    enforcement: [AI, STATIC, TEST]
+    ai_guidance:
+      instructions:
+        - "Before implementing a UI control, find and reuse the closest existing shared custom widget."
+        - "If a required shared control does not exist, add it to the shared UI component library and document its supported variants."
+        - "Keep custom widgets reusable and accessible, and keep feature logic in the ViewModel or equivalent presentation state holder."
+      review_questions:
+        - "Were existing custom widgets reused for recurring controls such as buttons and text fields?"
+        - "Does a new reusable control have a single shared implementation rather than feature-specific copies?"
+        - "Do widgets expose accessible semantics and relevant interaction states?"
+        - "Is business logic kept outside reusable UI widgets?"
+    evidence:
+      reference: "Shared UI Component Architecture"
+
+  - id: ARCH-006
+    name: Centralized Theme and Typography System
+    category: architecture
+    severity: HIGH
+    description: >
+      The application must provide a centralized design system with light and dark themes,
+      approved typography, and semantic color tokens applied consistently throughout the UI.
+    requirements:
+      - Define light and dark palettes centrally using semantic color roles rather than feature-specific color values.
+      - Allow the user to select light or dark appearance and provide a documented system-default behavior when supported by the platform.
+      - Define and reuse approved font families, weights, and a consistent typography scale through shared text styles.
+      - Apply shared spacing, shape, and component tokens alongside colors and typography where supported by the design system.
+      - Ensure text, controls, focus indicators, and error states remain legible and accessible in both themes.
+      - Keep theme switching consistent across screens and preserve the selected appearance according to product settings policy.
+    forbidden:
+      - Hardcoded color or font values scattered across feature screens and widgets.
+      - A light-only or dark-only interface when the application is expected to support both themes.
+      - Theme-specific components that duplicate behavior instead of using shared theme tokens.
+      - Color choices that make content, focus, error, or disabled states unreadable in either theme.
+    enforcement: [AI, STATIC, TEST]
+    ai_guidance:
+      instructions:
+        - "Use the centralized design tokens and typography styles; do not invent per-screen colors or font styles."
+        - "Implement and verify both light and dark appearances, including interactive and error states."
+        - "Honor the product's theme preference behavior and ensure shared widgets respond to theme changes."
+      review_questions:
+        - "Are light and dark themes defined centrally and available throughout the application?"
+        - "Are font family, weight, and type scale sourced from shared typography tokens?"
+        - "Are colors semantic tokens rather than hardcoded values in feature UI?"
+        - "Are text and interaction states legible in both themes?"
+    evidence:
+      reference: "Application Design System"

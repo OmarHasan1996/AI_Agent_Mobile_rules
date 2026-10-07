@@ -69,6 +69,14 @@ public sealed class RuleCatalogTests
         {
             File.WriteAllText(Path.Combine(directory.FullName, "config.yaml"), """
                 schema_version: "1.0"
+                severity:
+                  CRITICAL:
+                    description: "Blocks delivery."
+                enforcement_types:
+                  AI:
+                    description: "AI review."
+                lifecycle:
+                  states: ["active"]
                 defaults:
                   version: "1.0"
                   status: "active"
@@ -83,6 +91,7 @@ public sealed class RuleCatalogTests
                     name: Architecture
                     category: architecture
                     severity: CRITICAL
+                    enforcement: [AI]
                 """);
 
             var catalog = RuleCatalogLoader.Load(directory.FullName);
@@ -103,8 +112,8 @@ public sealed class RuleCatalogTests
 
         var catalog = RuleCatalogLoader.Load(rulesDirectory);
 
-        Assert.Equal("1.0", catalog.SchemaVersion);
-        Assert.Equal(25, catalog.Rules.Count);
+        Assert.Equal("2.0", catalog.SchemaVersion);
+        Assert.Equal(27, catalog.Rules.Count);
     }
 
     [Fact]
@@ -134,5 +143,51 @@ public sealed class RuleCatalogTests
 
         Assert.NotNull(restored);
         Assert.Equal(new[] { "ARCH-001", "SEC-003" }, restored!.SelectedRuleIds);
+    }
+
+    [Fact]
+    public void RepositoryReview_FindsForbiddenPatternsAndSkipsBuildDirectories()
+    {
+        var directory = Directory.CreateTempSubdirectory("enoc-review-");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(directory.FullName, "bin"));
+            File.WriteAllText(Path.Combine(directory.FullName, "Main.kt"), "val token = \"hardcoded-secret\"");
+            File.WriteAllText(Path.Combine(directory.FullName, "bin", "Generated.kt"), "val token = \"hardcoded-secret\"");
+            var rule = new EngineeringRule
+            {
+                Id = "SEC-001",
+                Name = "No secrets",
+                Severity = "BLOCKER",
+                Forbidden = new List<string> { "hardcoded-secret" }
+            };
+
+            var review = new RepositoryReviewService().Review(directory.FullName, new[] { rule });
+
+            var finding = Assert.Single(review.Findings);
+            Assert.Equal("Main.kt", finding.FilePath);
+            Assert.Equal(1, finding.LineNumber);
+        }
+        finally
+        {
+            directory.Delete(true);
+        }
+    }
+
+    [Fact]
+    public void UserSettings_RoundTripReviewContext()
+    {
+        var settings = new UserSettings("Login", "android", "dev", "json", Array.Empty<string>())
+        {
+            Mode = "review",
+            RepositoryPath = "/workspace/mobile-app"
+        };
+
+        var restored = System.Text.Json.JsonSerializer.Deserialize<UserSettings>(
+            System.Text.Json.JsonSerializer.Serialize(settings));
+
+        Assert.NotNull(restored);
+        Assert.Equal("review", restored!.Mode);
+        Assert.Equal("/workspace/mobile-app", restored.RepositoryPath);
     }
 }

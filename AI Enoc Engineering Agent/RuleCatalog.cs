@@ -13,11 +13,16 @@ public sealed class RuleCatalogConfig
 {
     [YamlMember(Alias = "schema_version")]
     public string SchemaVersion { get; init; } = string.Empty;
-    public Dictionary<string, object> Severity { get; init; } = new();
+    public Dictionary<string, CatalogValueDefinition> Severity { get; init; } = new();
     [YamlMember(Alias = "enforcement_types")]
-    public Dictionary<string, object> EnforcementTypes { get; init; } = new();
+    public Dictionary<string, CatalogValueDefinition> EnforcementTypes { get; init; } = new();
     public LifecycleConfig Lifecycle { get; init; } = new();
     public RuleDefaults Defaults { get; init; } = new();
+}
+
+public sealed class CatalogValueDefinition
+{
+    public string Description { get; init; } = string.Empty;
 }
 
 public sealed class LifecycleConfig
@@ -55,6 +60,9 @@ public sealed class EngineeringRule
     public string Severity { get; init; } = string.Empty;
     public string Version { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
+    public bool Required { get; init; }
+    [YamlMember(Alias = "depends_on")]
+    public List<string> DependsOn { get; init; } = new();
     public RuleScope? Scope { get; init; }
     public string Description { get; init; } = string.Empty;
     public List<string> Requirements { get; init; } = new();
@@ -88,6 +96,8 @@ public static class RuleCatalogLoader
         new(StringComparer.OrdinalIgnoreCase) { "BLOCKER", "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO" };
     private static readonly HashSet<string> ValidCategories =
         new(StringComparer.OrdinalIgnoreCase) { "architecture", "security", "testing", "observability", "environments", "cicd" };
+    private static readonly HashSet<string> ValidValidationTypes =
+        new(StringComparer.OrdinalIgnoreCase) { "secret_scan", "static_analysis", "test", "build", "manual_review" };
 
     public static RuleCatalog Load(string rulesDirectory)
     {
@@ -158,8 +168,21 @@ public static class RuleCatalogLoader
 
         foreach (var rule in rules)
         {
-            ValidateRule(rule, config.Defaults);
+            ValidateRule(rule, config);
         }
+
+        var knownRuleIds = rules.Select(rule => rule.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var rule in rules)
+        {
+            foreach (var dependency in rule.DependsOn)
+            {
+                if (!knownRuleIds.Contains(dependency))
+                    throw new InvalidDataException($"Rule '{rule.Id}' depends on unknown rule '{dependency}'.");
+                if (string.Equals(rule.Id, dependency, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException($"Rule '{rule.Id}' cannot depend on itself.");
+            }
+        }
+        EnsureDependencyGraphIsAcyclic(rules);
 
         var orderedRules = rules
             .OrderBy(rule => CategoryRank(rule.Category))
@@ -177,9 +200,11 @@ public static class RuleCatalogLoader
             throw new InvalidDataException("Catalog defaults.version and defaults.status are required.");
         if (config.Defaults.Scope.Platforms.Count == 0 || config.Defaults.Scope.ProjectTypes.Count == 0 || config.Defaults.Scope.Environments.Count == 0)
             throw new InvalidDataException("Catalog defaults.scope must define platforms, project_types, and environments.");
+        if (config.Severity.Count == 0 || config.EnforcementTypes.Count == 0 || config.Lifecycle.States.Count == 0)
+            throw new InvalidDataException("Catalog must define severity, enforcement_types, and lifecycle states.");
     }
 
-    private static void ValidateRule(EngineeringRule rule, RuleDefaults defaults)
+    private static void ValidateRule(EngineeringRule rule, RuleCatalogConfig config)
     {
         if (string.IsNullOrWhiteSpace(rule.Id) || string.IsNullOrWhiteSpace(rule.Name) ||
             string.IsNullOrWhiteSpace(rule.Category) || string.IsNullOrWhiteSpace(rule.Severity))
@@ -188,6 +213,49 @@ public static class RuleCatalogLoader
             throw new InvalidDataException($"Rule '{rule.Id}' has unsupported category '{rule.Category}'.");
         if (!ValidSeverities.Contains(rule.Severity))
             throw new InvalidDataException($"Rule '{rule.Id}' has unsupported severity '{rule.Severity}'.");
+        if (!config.Severity.Keys.Contains(rule.Severity, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidDataException($"Rule '{rule.Id}' severity '{rule.Severity}' is not defined in config.yaml.");
+        var status = string.IsNullOrWhiteSpace(rule.Status) ? config.Defaults.Status : rule.Status;
+        if (!config.Lifecycle.States.Contains(status, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidDataException($"Rule '{rule.Id}' has unsupported lifecycle status '{status}'.");
+        if (rule.Enforcement.Count == 0)
+            throw new InvalidDataException($"Rule '{rule.Id}' must define at least one enforcement mechanism.");
+        foreach (var mechanism in rule.Enforcement)
+        {
+            if (!config.EnforcementTypes.Keys.Contains(mechanism, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Rule '{rule.Id}' uses undefined enforcement mechanism '{mechanism}'.");
+        }
+        if (rule.Validation is not null)
+        {
+            if (!ValidValidationTypes.Contains(rule.Validation.Type))
+                throw new InvalidDataException($"Rule '{rule.Id}' uses unsupported validation type '{rule.Validation.Type}'.");
+            if (rule.Validation.Checks.Count == 0)
+                throw new InvalidDataException($"Rule '{rule.Id}' validation must define at least one check.");
+        }
+    }
+
+    private static void EnsureDependencyGraphIsAcyclic(IReadOnlyList<EngineeringRule> rules)
+    {
+        var dependencies = rules.ToDictionary(rule => rule.Id, rule => rule.DependsOn, StringComparer.OrdinalIgnoreCase);
+        var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var rule in rules)
+            Visit(rule.Id);
+
+        void Visit(string ruleId)
+        {
+            if (visited.Contains(ruleId))
+                return;
+            if (!visiting.Add(ruleId))
+                throw new InvalidDataException($"Rule dependency cycle detected at '{ruleId}'.");
+
+            foreach (var dependency in dependencies[ruleId])
+                Visit(dependency);
+
+            visiting.Remove(ruleId);
+            visited.Add(ruleId);
+        }
     }
 
     internal static int CategoryRank(string category) => category.ToLowerInvariant() switch

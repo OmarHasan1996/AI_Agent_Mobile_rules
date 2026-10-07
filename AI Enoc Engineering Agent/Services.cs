@@ -34,7 +34,11 @@ public sealed record UserSettings(
     string Platform,
     string Environment,
     string Format,
-    IReadOnlyList<string> SelectedRuleIds);
+    IReadOnlyList<string> SelectedRuleIds)
+{
+    public string Mode { get; init; } = "generate";
+    public string RepositoryPath { get; init; } = string.Empty;
+}
 
 public interface IUserSettingsService
 {

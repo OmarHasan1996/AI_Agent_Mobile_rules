@@ -12,6 +12,10 @@ public sealed class MainWindow : Window
     private readonly IRuleCatalogService _catalogService;
     private readonly IContractService _contractService;
     private readonly IUserSettingsService _settingsService;
+    private readonly IRepositoryReviewService _reviewService;
+    private readonly ComboBox _modeInput = CreateComboBox("Generate", "Review");
+    private readonly Button _runButton = new() { Content = "Generate guardrails", Padding = new Thickness(22, 10), Classes = { "primary" } };
+    private readonly TextBox _repositoryInput = new() { IsReadOnly = true, Watermark = "Select a local repository...", MinHeight = 42 };
     private readonly TextBox _taskInput = new() { Watermark = "Example: Create a secure employee login feature", MinHeight = 42 };
     private readonly ComboBox _platformInput = CreateComboBox("android", "ios", "multiplatform");
     private readonly TextBox _languageInput = new() { IsReadOnly = true, Text = "Kotlin", MinHeight = 42 };
@@ -34,12 +38,14 @@ public sealed class MainWindow : Window
     public MainWindow(
         IRuleCatalogService? catalogService = null,
         IContractService? contractService = null,
-        IUserSettingsService? settingsService = null)
+        IUserSettingsService? settingsService = null,
+        IRepositoryReviewService? reviewService = null)
     {
         _catalogService = catalogService ?? new RuleCatalogService();
         _contractService = contractService ?? new ContractService();
         _settingsService = settingsService ?? new UserSettingsService();
-        Title = "ENOC Engineering Guardrails";
+        _reviewService = reviewService ?? new RepositoryReviewService();
+        Title = "ENOC Engineering Guardrails - Mobile application development";
         Width = 1160;
         Height = 820;
         MinWidth = 820;
@@ -57,6 +63,7 @@ public sealed class MainWindow : Window
             SaveSettings();
         };
         _formatInput.SelectionChanged += (_, _) => SaveSettings();
+        _modeInput.SelectionChanged += (_, _) => UpdateModeUi();
         _ruleSearch.TextChanged += (_, _) => RefreshRuleList();
         Content = BuildContent();
         RestoreSettings();
@@ -65,8 +72,9 @@ public sealed class MainWindow : Window
 
     private Control BuildContent()
     {
-        var generateButton = new Button { Content = "Generate guardrails", Padding = new Thickness(22, 10), Classes = { "primary" } };
-        generateButton.Click += (_, _) => GenerateContract();
+        _runButton.Click += async (_, _) => await RunMode();
+        var browseButton = new Button { Content = "Choose repository...", Padding = new Thickness(14, 10) };
+        browseButton.Click += async (_, _) => await ChooseRepository();
         var selectAllButton = new Button { Content = "Select all", Padding = new Thickness(14, 8) };
         selectAllButton.Click += (_, _) => SetRulesSelected(true);
         var clearAllButton = new Button { Content = "Clear all", Padding = new Thickness(14, 8) };
@@ -91,7 +99,7 @@ public sealed class MainWindow : Window
         saveButton.Click += async (_, _) => await SaveContract();
 
         var headerCopy = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-        headerCopy.Children.Add(new TextBlock { Text = "ENOC Engineering Guardrails", FontSize = 28, FontWeight = FontWeight.Bold, Foreground = Brushes.White });
+        headerCopy.Children.Add(new TextBlock { Text = "ENOC Engineering Guardrails - Application development", FontSize = 28, FontWeight = FontWeight.Bold, Foreground = Brushes.White });
         headerCopy.Children.Add(new TextBlock { Text = "Create consistent, reviewable engineering instructions for your AI agent.", FontSize = 14, Foreground = new SolidColorBrush(Color.Parse("#D7E8E8")) });
         var header = new Border
         {
@@ -102,11 +110,30 @@ public sealed class MainWindow : Window
         };
 
         var form = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*,*"), RowDefinitions = new RowDefinitions("Auto,Auto") };
-        form.Children.Add(LabeledControl("Task or feature request", _taskInput, 0, 0, 4));
+        form.Children.Add(LabeledControl("Mode", _modeInput, 0, 0));
+        form.Children.Add(LabeledControl("Task or feature request", _taskInput, 1, 0, 3));
         form.Children.Add(LabeledControl("Platform", _platformInput, 0, 1));
         form.Children.Add(LabeledControl("Development language", _languageInput, 1, 1));
         form.Children.Add(LabeledControl("Environment", _environmentInput, 2, 1, 1, "Select the deployment target. Dev is for local development, QA is for shared testing, and Production is the release configuration. This changes environment-specific requirements such as debug protection, logging, signing, and distribution."));
         form.Children.Add(LabeledControl("Output format", _formatInput, 3, 1));
+        form.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        var repositoryGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        repositoryGrid.Children.Add(_repositoryInput);
+        Grid.SetColumn(browseButton, 1);
+        repositoryGrid.Children.Add(browseButton);
+        var repositorySection = new StackPanel
+        {
+            Spacing = 7,
+            Children =
+            {
+                new TextBlock { Text = "Repository for Review mode", FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse("#123C46")) },
+                repositoryGrid
+            }
+        };
+        Grid.SetColumn(repositorySection, 0);
+        Grid.SetRow(repositorySection, 2);
+        Grid.SetColumnSpan(repositorySection, 4);
+        form.Children.Add(repositorySection);
 
         var ruleHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         ruleHeader.Children.Add(new TextBlock { Text = "Rules to apply", FontSize = 18, FontWeight = FontWeight.SemiBold });
@@ -122,7 +149,7 @@ public sealed class MainWindow : Window
         rulePanel.Children.Add(rulesScroll);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 6, 0, 0) };
-        actions.Children.Add(generateButton);
+        actions.Children.Add(_runButton);
         actions.Children.Add(copyButton);
         actions.Children.Add(saveButton);
         actions.Children.Add(_status);
@@ -201,6 +228,61 @@ public sealed class MainWindow : Window
         _output.Text = _contractService.Render(contract, _formatInput.SelectedItem?.ToString() ?? "markdown");
         _status.Text = $"{selectedRules.Length} rules included.";
         SaveSettings();
+    }
+
+    private async Task RunMode()
+    {
+        if (string.Equals(_modeInput.SelectedItem?.ToString(), "review", StringComparison.OrdinalIgnoreCase))
+        {
+            await ReviewRepository();
+            return;
+        }
+
+        GenerateContract();
+    }
+
+    private async Task ChooseRepository()
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Select repository",
+            AllowMultiple = false
+        });
+        var folder = folders.FirstOrDefault();
+        if (folder is null)
+            return;
+
+        _repositoryInput.Text = folder.Path.LocalPath;
+        SaveSettings();
+        _status.Text = "Repository selected.";
+    }
+
+    private async Task ReviewRepository()
+    {
+        if (string.IsNullOrWhiteSpace(_repositoryInput.Text))
+        {
+            _status.Text = "Select a repository before starting a review.";
+            return;
+        }
+
+        var selectedRules = _applicableRules.Where(rule => _selectedRuleIds.Contains(rule.Id)).ToArray();
+        if (selectedRules.Length == 0)
+        {
+            _status.Text = "Select at least one rule.";
+            return;
+        }
+
+        try
+        {
+            var review = await Task.Run(() => _reviewService.Review(_repositoryInput.Text, selectedRules));
+            _output.Text = _reviewService.Render(review, _formatInput.SelectedItem?.ToString() ?? "markdown");
+            _status.Text = $"Review complete: {review.Findings.Count} finding(s) in {review.ScannedFiles.Count} file(s).";
+            SaveSettings();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            _status.Text = $"Unable to review repository: {exception.Message}";
+        }
     }
 
     private async Task SaveContract()
@@ -315,6 +397,8 @@ public sealed class MainWindow : Window
     {
         var settings = _settingsService.Load();
         _taskInput.Text = settings.Task;
+        SelectValue(_modeInput, settings.Mode);
+        _repositoryInput.Text = settings.RepositoryPath;
         SelectValue(_platformInput, settings.Platform);
         SelectValue(_environmentInput, settings.Environment);
         SelectValue(_formatInput, settings.Format);
@@ -327,17 +411,33 @@ public sealed class MainWindow : Window
     {
         try
         {
-            _settingsService.Save(new UserSettings(
+            var settings = new UserSettings(
                 _taskInput.Text?.Trim() ?? string.Empty,
                 _platformInput.SelectedItem?.ToString() ?? "android",
                 _environmentInput.SelectedItem?.ToString() ?? "dev",
                 _formatInput.SelectedItem?.ToString() ?? "markdown",
-                _selectedRuleIds.OrderBy(ruleId => ruleId).ToArray()));
+                _selectedRuleIds.OrderBy(ruleId => ruleId).ToArray())
+            {
+                Mode = _modeInput.SelectedItem?.ToString() ?? "generate",
+                RepositoryPath = _repositoryInput.Text?.Trim() ?? string.Empty
+            };
+            _settingsService.Save(settings);
         }
         catch (IOException)
         {
             _status.Text = "Settings could not be saved; your contract is still available.";
         }
+    }
+
+    private void UpdateModeUi()
+    {
+        var review = string.Equals(_modeInput.SelectedItem?.ToString(), "review", StringComparison.OrdinalIgnoreCase);
+        _taskInput.IsEnabled = !review;
+        _runButton.Content = review ? "Review repository" : "Generate guardrails";
+        _status.Text = review
+            ? "Review mode scans the selected repository for forbidden patterns."
+            : "Generate mode creates guardrails for a task.";
+        SaveSettings();
     }
 
     private void UpdateLanguage()

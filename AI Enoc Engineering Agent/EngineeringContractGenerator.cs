@@ -26,7 +26,7 @@ public static class EngineeringContractGenerator
     public static string ToMarkdown(EngineeringContract contract)
     {
         var output = new StringBuilder();
-        output.AppendLine("# ENOC Engineering Guardrails");
+        output.AppendLine("# ENOC Engineering Guardrails - Mobile application development");
         output.AppendLine();
         output.AppendLine("Use this contract as the non-negotiable engineering policy for the requested work.");
         output.AppendLine();
